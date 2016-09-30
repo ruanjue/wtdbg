@@ -112,6 +112,23 @@ typedef long double f8i;
 #define get_8bit32(bits, idx) ((((bits)[(idx) >> 2]) >> (((idx) & 0x03) << 3)) & 0xFF)
 #define get_8bit64(bits, idx) ((((bits)[(idx) >> 3]) >> (((idx) & 0x07) << 3)) & 0xFF)
 
+#ifndef __HEADER_NO_EXECINFO
+static inline void print_backtrace(FILE *out, int max_frame){
+	void **buffer;
+	int frames;
+	if(max_frame < 1) max_frame = 1;
+	buffer = malloc(sizeof(void*) * max_frame);
+	frames = backtrace(buffer, max_frame);
+	backtrace_symbols_fd(buffer, frames, fileno(out));
+	free(buffer);
+}
+#else
+static inline void print_backtrace(FILE *out, int max_frame){
+	UNUSED(max_frame);
+	fprintf(out, "-- ** Cannot back trace frames ** --\n");
+}
+#endif
+
 static inline size_t roundup_power2(size_t v){
 	if(v == 0) return 0;
 	v --;
@@ -142,18 +159,6 @@ static inline size_t encap_list(void **buffer, size_t e_size, size_t size, size_
 	if(mem_zeros) memset(ptr + cur_cap, 0, e_size * (cap - cur_cap));
 	return cap;
 }
-
-#ifndef __HEADER_NO_EXECINFO
-static inline void print_backtrace(FILE *out, int max_frame){
-	void **buffer;
-	int frames;
-	if(max_frame < 1) max_frame = 1;
-	buffer = malloc(sizeof(void*) * max_frame);
-	frames = backtrace(buffer, max_frame);
-	backtrace_symbols_fd(buffer, frames, fileno(out));
-	free(buffer);
-}
-#endif
 
 #ifndef __USE_GNU
 
