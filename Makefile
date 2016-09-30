@@ -27,9 +27,6 @@ wtdbg: $(GENERIC_SRC) wtdbg.c dmo.h
 wtdbg-cns: $(GENERIC_SRC) wtdbg-cns.c kswx.h ksw.h ksw.c dbgcns.h dagcns.h queue.h general_graph.h
 	$(CC) $(CFLAGS) -o wtdbg-cns file_reader.c wtdbg-cns.c ksw.c $(GLIBS)
 
-wtdbg-div: $(GENERIC_SRC) wtdbg-div.c upgma.h
-	$(CC) $(CFLAGS) -o wtdbg-div file_reader.c wtdbg-div.c $(GLIBS)
-
 clean:
 	rm -f *.o *.gcda *.gcno *.gcov gmon.out $(PROGS)
 
