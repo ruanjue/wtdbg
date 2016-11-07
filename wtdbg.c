@@ -1,5 +1,4 @@
 /*
-fprintf(stderr, " -- in %s -- %s:%d --\n", __FUNCTION__, __FILE__, __LINE__); fflush(stderr);
  *
  * Copyright (c) 2011, Jue Ruan <ruanjue@gmail.com>
  *
@@ -200,6 +199,7 @@ typedef struct {
 	int min_ctg_len, min_ctg_nds;
 
 	vplist *utgs;
+	u4i    major_nctg;
 	vplist *ctgs;
 } Graph;
 
@@ -244,6 +244,7 @@ Graph* init_graph(DMO *dmo){
 	g->min_ctg_nds = 5;
 	g->utgs = init_vplist(32);
 	g->ctgs = init_vplist(32);
+	g->major_nctg = 0;
 	return g;
 }
 
@@ -1686,7 +1687,7 @@ int evaluate_node_connectivity_graph(Graph *g, uint64_t nid, u4v *rds, subnodeha
 	return 1;
 }
 
-void print_subgraph_dot(u8i id, subnodehash *nodes, subedgev *edges, FILE *out){
+void print_subgraph_dot(Graph *g, u8i id, subnodehash *nodes, subedgev *edges, FILE *out){
 	subnode_t *n;
 	subedge_t *e;
 	u8i idx;
@@ -1696,6 +1697,7 @@ void print_subgraph_dot(u8i id, subnodehash *nodes, subedgev *edges, FILE *out){
 	reset_iter_subnodehash(nodes);
 	while((n = ref_iter_subnodehash(nodes))){
 		if(n->closed) continue;
+		fprintf(out, "N%llu [label=\"N%llu(%llu)\"]\n", (u8i)n->node, (u8i)n->node, (u8i)g->nodes->buffer[n->node].rep_idx);
 		for(k=0;k<2;k++){
 			idx = n->edges[k].idx;
 			while(idx){
@@ -1731,7 +1733,7 @@ for(nid=tidx;nid<mrep->g->nodes->size;nid+=ncpu){
 	if(mrep->g->nodes->buffer[nid].closed) continue;
 	if(evaluate_node_connectivity_graph(mrep->g, nid, rds, nodes, edges, stack) == 0){
 		if(0){
-			print_subgraph_dot(nid, nodes, edges, stdout);
+			print_subgraph_dot(mrep->g, nid, nodes, edges, stdout);
 		}
 		mrep->g->nodes->buffer[nid].closed = 1;
 		push_u8v(mrep->reps, nid);
@@ -2548,12 +2550,59 @@ uint32_t rescue_weak_tip_lnks_core(Graph *g, uint64_t nid){
 	return ret;
 }
 
-uint64_t rescue_weak_tip_lnks_graph(Graph *g){
+uint64_t rescue_weak_tip_lnks2_graph(Graph *g){
 	uint64_t nid, ret;
 	ret = 0;
 	for(nid=0;nid<g->frgs->size;nid++){
 		ret += rescue_weak_tip_lnks_core(g, nid);
 	}
+	return ret;
+}
+
+u8i rescue_weak_tip_lnks_graph(Graph *g){
+	u8v *weaks[2];
+	frg_t *n;
+	lnk_t *e;
+	edge_ref_t *f;
+	u8i nid, i, ret;
+	u4i k, eidx, idx;
+	weaks[0] = init_u8v(g->frgs->size);
+	weaks[1] = init_u8v(g->frgs->size);
+	ret = 0;
+	for(nid=0;nid<g->frgs->size;nid++){
+		n = ref_frgv(g->frgs, nid);
+		for(k=0;k<2;k++){
+			if(n->lnks[k].cnt){
+				eidx = 0;
+			} else {
+				idx = n->lnks[k].idx;
+				eidx = 0;
+				while(idx){
+					f = ref_edgerefv(g->lrefs, idx);
+					e = ref_lnkv(g->lnks, f->idx);
+					if(e->weak){
+						if(eidx == 0) eidx = f->idx;
+						else eidx = MAX_VALUE_U4;
+					}
+					idx = f->next;
+				}
+			}
+			push_u8v(weaks[k], eidx);
+		}
+	}
+	for(k=0;k<2;k++){
+		for(i=0;i<weaks[k]->size;i++){
+			if(weaks[k]->buffer[i] == 0 || weaks[k]->buffer[i] == MAX_VALUE_U4) continue;
+			e = ref_lnkv(g->lnks, weaks[k]->buffer[i]);
+			if(i != e->frg1) continue;
+			if(weaks[0]->buffer[e->frg2] == weaks[k]->buffer[i] || weaks[1]->buffer[e->frg2] == weaks[k]->buffer[i]){
+				ret ++;
+				revive_lnk_graph(g, e);
+			}
+		}
+	}
+	free_u8v(weaks[0]);
+	free_u8v(weaks[1]);
 	return ret;
 }
 
@@ -3485,7 +3534,10 @@ uint64_t gen_unitigs_graph(Graph *g){
 	clear_vplist(g->utgs);
 	lens = init_u4v(1024);
 	nutg = 0;
-	for(nid=0;nid<g->nodes->size;nid++) g->nodes->buffer[nid].bt_visit = 0;
+	for(nid=0;nid<g->nodes->size;nid++){
+		g->nodes->buffer[nid].bt_visit = 0;
+		g->nodes->buffer[nid].rep_idx  = MAX_REP_IDX;
+	}
 	for(nid=0;nid<g->nodes->size;nid++){
 		n = ref_nodev(g->nodes, nid);
 		if(n->closed) continue;
@@ -3502,6 +3554,9 @@ uint64_t gen_unitigs_graph(Graph *g){
 		for(i=0;i<path->size;i++) path->buffer[i].dir = !path->buffer[i].dir;
 		true_linear_unique_trace_graph(g, path, 0xFFFFFFFFFFFFFFFFLLU, nutg, NULL);
 		push_u4v(lens, cal_offset_traces_graph(g, path, 0, path->size));
+		for(i=0;i<path->size;i++){
+			ref_nodev(g->nodes, path->buffer[i].node)->rep_idx = g->utgs->size;
+		}
 		push_vplist(g->utgs, path);
 	}
 	fprintf(hzm_debug_out, "[%s] ", date()); num_n50(lens, hzm_debug_out); fprintf(hzm_debug_out, "\n");
@@ -3599,7 +3654,7 @@ tracev* path2traces_graph(Graph *g, pathv *path){
 	return ts;
 }
 
-uint64_t gen_contigs_graph(Graph *g){
+uint64_t gen_contigs_graph(Graph *g, FILE *out){
 	pathv *path;
 	tracev *ts;
 	path_t *t;
@@ -3628,9 +3683,15 @@ uint64_t gen_contigs_graph(Graph *g){
 		if((ts = path2traces_graph(g, path)) == NULL){
 			continue;
 		}
+		cal_offset_paths_graph(g, path, 0, path->size);
+		for(i=0;i<path->size;i++){
+			t = ref_pathv(path, i);
+			fprintf(out, "ctg%d\tF%d\t%c\t%d\n", (int)g->ctgs->size, t->frg, "+-*@"[t->dir], t->off);
+		}
 		push_vplist(g->ctgs, ts);
 	}
 	free_pathv(path);
+	g->major_nctg = g->ctgs->size;
 	return nctg;
 }
 
@@ -3711,7 +3772,7 @@ void n50_stat_contigs_graph(Graph *g){
 	int len;
 	u8i i;
 	lens = init_u4v(1024);
-	for(i=0;i<g->ctgs->size;i++){
+	for(i=0;i<g->major_nctg;i++){
 		ts = (tracev*)get_vplist(g->ctgs, i);
 		len = cal_offset_traces_graph(g, ts, 0, ts->size);
 		push_u4v(lens, len);
@@ -3819,7 +3880,7 @@ u4i count_isolated_reads_graph(Graph *g){
 	return cnt;
 }
 
-void print_dot_subgraph(subnodehash *nodes, subedgev *edges, FILE *out){
+void print_dot_subgraph(Graph *g, subnodehash *nodes, subedgev *edges, FILE *out){
 	subnode_t *n1, *n2;
 	subedge_t *e;
 	u4i k, idx;
@@ -3828,7 +3889,7 @@ void print_dot_subgraph(subnodehash *nodes, subedgev *edges, FILE *out){
 	reset_iter_subnodehash(nodes);
 	while((n1 = ref_iter_subnodehash(nodes))){
 		if(n1->closed) continue;
-		fprintf(out, "N%llu [label=\"N%llu %d:%d:%d\" style=filled fillcolor=\"%s\" color=\"%s\"]\n", (u8i)n1->node, (u8i)n1->node, n1->cov, n1->visit, n1->bt_open, n1->fix? "yellow" : "white", n1->visit? "green" : (n1->cov > 2? "blue" : "black"));
+		fprintf(out, "N%llu [label=\"N%llu(%llu) %d:%d:%d\" style=filled fillcolor=\"%s\" color=\"%s\"]\n", (u8i)n1->node, (u8i)n1->node, (u8i)g->nodes->buffer[n1->node].rep_idx, n1->cov, n1->visit, n1->bt_open, n1->fix? "yellow" : "white", n1->visit? "green" : (n1->cov > 2? "blue" : "black"));
 	}
 	reset_iter_subnodehash(nodes);
 	while((n1 = ref_iter_subnodehash(nodes))){
@@ -3849,10 +3910,10 @@ void print_dot_subgraph(subnodehash *nodes, subedgev *edges, FILE *out){
 	fflush(out);
 }
 
-void fprintf_dot_subgraph(subnodehash *nodes, subedgev *edges, char *name_prefix, char *name_suffix){
+void fprintf_dot_subgraph(Graph *g, subnodehash *nodes, subedgev *edges, char *name_prefix, char *name_suffix){
 	FILE *out;
 	out = open_file_for_write(name_prefix, name_suffix, 1);
-	print_dot_subgraph(nodes, edges, out);
+	print_dot_subgraph(g, nodes, edges, out);
 	fclose(out);
 }
 
@@ -4151,7 +4212,17 @@ int local_assembly_core_subgraph(Graph *g, tracev *traces, u4i tstar, int tdir, 
 #ifdef LOCAL_ASSEMBLY_NO_TRIMMING
 #else
 	if(ntip > 1){
-		return 0;
+		u4i fid;
+		fid = MAX_VALUE_U4;
+		ntip = 0;
+		for(i=0;i<tips->size;i++){
+			if(tips->buffer[i].closed) continue;
+			if(tips->buffer[i].node == fid) continue;
+			ntip ++;
+		}
+		if(ntip > 1){
+			return 0;
+		}
 	}
 #endif
 	// whether the backtrace path has solid
@@ -4295,6 +4366,10 @@ u4i extending_unitig_core_graph(Graph *g, u4i tid, u4i max_end, u4i trgs[2], tra
 					r = ref_regv(g->regs, idx);
 					idx = r->read_link;
 					N.node = r->node;
+					if(1){
+						// try to ignore the nodes not in unitigs
+						if(g->nodes->buffer[r->node].rep_idx == MAX_REP_IDX) continue;
+					}
 					n = prepare_subnodehash(nodes, N, &exists);
 					if(exists){
 						n->cov ++;
@@ -4330,6 +4405,10 @@ u4i extending_unitig_core_graph(Graph *g, u4i tid, u4i max_end, u4i trgs[2], tra
 				while(idx != sr->end_idx){
 					r = ref_regv(g->regs, idx);
 					idx = r->read_link;
+					if(1){
+						// try to ignore the nodes not in unitigs
+						if(g->nodes->buffer[r->node].rep_idx == MAX_REP_IDX) continue;
+					}
 					N.node = r->node;
 					k2 = r->dir;
 					n2 = get_subnodehash(nodes, N);
@@ -4396,6 +4475,9 @@ u4i extending_unitig_core_graph(Graph *g, u4i tid, u4i max_end, u4i trgs[2], tra
 			// Now, assuming the result of local assembly is right even trimming some nodes
 			//if(ts->buffer[tk? tbeg : tend - 1].node == 9188){
 				//fprintf(stderr, " -- something wrong in %s -- %s:%d --\n", __FUNCTION__, __FILE__, __LINE__); fflush(stderr);
+			//}
+			//if(ts->size > 100 && tk == 0 && tend == ts->size){ // never happen
+				//fprintf_dot_subgraph(g, nodes, edges, "debug", ".dot");
 			//}
 			if(cut_loopback_edges_subgraph(ts, tb, nodes, edges, heap)){
 				if(0) return 0;
@@ -4632,9 +4714,6 @@ u4i gen_lnks_graph(Graph *g, int ncpu){
 						L.off = _node_off2dist_sg(g, i, j, !L.dir2) + _node_off2dist_sg(g, n->rep_idx, n->bt_visit, L.dir1);
 						L.flag = 1;
 					}
-					//if(L.frg1 == 0 && L.frg2 == 37){
-						//fprintf(stderr, " -- something wrong in %s -- %s:%d --\n", __FUNCTION__, __FILE__, __LINE__); fflush(stderr);
-					//}
 					if(L.off + (int)g->reglen < 0) continue;
 					L.tidx = j - (fdir? 0 : x);
 					L.cov = t->cov;
@@ -4882,7 +4961,7 @@ if(mlay->path && mlay->tidx != 0xFFFFFFFFU){
 thread_end_loop(mlay);
 thread_end_func(mlay);
 
-u8i print_ctgs_graph(Graph *g, char *prefix, char *utg_suffix, char *lay_suffix, u4i ncpu){
+u8i print_ctgs_graph(Graph *g, u8i uid, u8i beg, u8i end, char *prefix, char *utg_suffix, char *lay_suffix, u4i ncpu, FILE *log){
 	FILE *o_utg, *o_lay;
 	layv *lays;
 	layregv *regs;
@@ -4892,7 +4971,7 @@ u8i print_ctgs_graph(Graph *g, char *prefix, char *utg_suffix, char *lay_suffix,
 	trace_t *t1, *t2;
 	lay_t *lay;
 	lay_reg_t *reg;
-	u8i i, uid;
+	u8i i;
 	u4i j, c;
 	int offset;
 	thread_preprocess(mlay);
@@ -4908,7 +4987,7 @@ u8i print_ctgs_graph(Graph *g, char *prefix, char *utg_suffix, char *lay_suffix,
 	mlay->tidx = 0xFFFFFFFFU;
 	mlay->regs = init_layregv(32);
 	thread_end_init(mlay);
-	for(i=uid=0;i<g->ctgs->size;i++){
+	for(i=beg;i<end;i++){
 		path = (tracev*)get_vplist(g->ctgs, i);
 		if(path->size < 2) continue;
 		clear_layv(lays);
@@ -4946,6 +5025,7 @@ u8i print_ctgs_graph(Graph *g, char *prefix, char *utg_suffix, char *lay_suffix,
 		uid ++;
 		sort_array(lays->buffer, lays->size, lay_t, num_cmpgt(a.tidx, b.tidx));
 		fprintf(o_lay, ">ctg%llu nodes=%llu\n", uid, (u8i)path->size);
+		fprintf(log, "OUTPUT\tctg%d -> ctg%d\n", (int)i, (int)uid);
 		offset = 0;
 		for(j=0;j<lays->size;j++){
 			lay = ref_layv(lays, j);
@@ -4962,7 +5042,7 @@ u8i print_ctgs_graph(Graph *g, char *prefix, char *utg_suffix, char *lay_suffix,
 			fprintf(o_lay, "E\t%d\tN%llu\t%c\tN%llu\t%c\n", offset, t1->node, "+-"[t1->dir], t2->node, "+-"[t2->dir]);
 			for(c=0;c<lay->rcnt;c++){
 				reg = ref_layregv(regs, lay->roff + c);
-				fprintf(o_lay, "S\t%s\t%c\t%d\t%d\t", g->dmo->reads->buffer[reg->rid].tag, "+-"[reg->dir], reg->beg, reg->end - reg->beg);
+				fprintf(o_lay, "%c\t%s\t%c\t%d\t%d\t", "Ss"[reg->view], g->dmo->reads->buffer[reg->rid].tag, "+-"[reg->dir], reg->beg, reg->end - reg->beg);
 				if(reg->dir){
 					print_revseq_basebank(g->dmo->rdseqs, g->dmo->reads->buffer[reg->rid].rdoff + reg->beg, reg->end - reg->beg, o_lay);
 				} else {
@@ -5493,7 +5573,7 @@ int usage(){
 	printf(
 	"WTDBG: De novo assembler for long noisy sequences\n"
 	"Author: Jue Ruan <ruanjue@gmail.com>\n"
-	"Version: 1.1.005\n"
+	"Version: 1.1.006\n"
 #ifdef TIMESTAMP
 	"Compiled: %u\n"
 #endif
@@ -5909,8 +5989,10 @@ int main(int argc, char **argv){
 	if(!less_out) generic_print_graph(g, print_dot_graph,   prefix, ".3.dot");
 	rep = mask_all_branching_nodes_graph(g);
 	fprintf(hzm_debug_out, "[%s] cut %llu branching nodes\n", date(), rep);
-	cnt = del_isolated_nodes_graph(g);
-	fprintf(hzm_debug_out, "[%s] deleted %llu isolated nodes\n", date(), (unsigned long long)cnt);
+	if(1){
+		cnt = del_isolated_nodes_graph(g);
+		fprintf(hzm_debug_out, "[%s] deleted %llu isolated nodes\n", date(), (unsigned long long)cnt);
+	}
 	fprintf(hzm_debug_out, "[%s] building unitigs\n", date());
 	gen_unitigs_graph(g);
 	fprintf(hzm_debug_out, "[%s] trimming and extending unitigs by local assembly, %d threads\n", date(), ncpu);
@@ -5919,8 +6001,10 @@ int main(int argc, char **argv){
 	fprintf(hzm_debug_out, "[%s] generating links\n", date());
 	gen_lnks_graph(g, ncpu);
 	if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".frg.dot");
-	cnt = rescue_weak_tip_lnks_graph(g);
-	fprintf(hzm_debug_out, "[%s] rescue %llu weak links\n", date(), (unsigned long long)cnt);
+	if(1){
+		cnt = rescue_weak_tip_lnks_graph(g);
+		fprintf(hzm_debug_out, "[%s] rescue %llu weak links\n", date(), (unsigned long long)cnt);
+	}
 	cnt = cut_binary_lnks_graph(g);
 	fprintf(hzm_debug_out, "[%s] deleted %llu binary links\n", date(), (unsigned long long)cnt);
 	cnt = reduce_transitive_lnks_graph(g);
@@ -5935,17 +6019,26 @@ int main(int argc, char **argv){
 	fprintf(hzm_debug_out, "[%s] pop %llu bubbles\n", date(), (unsigned long long)cnt);
 	if(!less_out) generic_print_graph(g, print_frgs_dot_graph, prefix, ".ctg.dot");
 	fprintf(hzm_debug_out, "[%s] building contigs\n", date());
-	cnt = gen_contigs_graph(g);
+	cnt = gen_contigs_graph(g, evtlog);
 	fprintf(hzm_debug_out, "[%s] searched %llu contigs\n", date(), (unsigned long long)cnt);
-	cnt = gen_complex_contigs_graph(g);
-	fprintf(hzm_debug_out, "[%s] added %llu small contigs\n", date(), (unsigned long long)cnt);
+	if(1){
+		cnt = gen_complex_contigs_graph(g);
+		u8i sum;
+		sum = 0;
+		for(i=g->major_nctg;i<g->ctgs->size;i++){
+			sum += cal_offset_traces_graph(g, (tracev*)get_vplist(g->ctgs, i), 0, ((tracev*)get_vplist(g->ctgs, i))->size);
+		}
+		fprintf(hzm_debug_out, "[%s] added %llu unsolved repetitive contigs, %llu bp\n", date(), (unsigned long long)cnt, sum);
+	}
 	n50_stat_contigs_graph(g);
 	//cnt = generic_print_graph(g, print_isolated_nodes_dot_graph, prefix, ".4.dot");
 	//fprintf(hzm_debug_out, "[%s] %llu nodes not in contigs\n", date(), (unsigned long long)cnt);
 	//cnt = count_isolated_reads_graph(g);
 	//fprintf(hzm_debug_out, "[%s] %llu reads not in contigs\n", date(), (unsigned long long)cnt);
 	fprintf(hzm_debug_out, "[%s] outputing contigs\n", date());
-	print_ctgs_graph(g, prefix, ".ctg.fa", ".ctg.lay", ncpu);
+	cnt = print_ctgs_graph(g, 0, 0, g->major_nctg, prefix, ".ctg.fa", ".ctg.lay", ncpu, evtlog);
+	fprintf(hzm_debug_out, "[%s] outputing reptigs\n", date());
+	cnt = print_ctgs_graph(g, cnt, g->major_nctg, g->ctgs->size, prefix, ".rtg.fa", ".rtg.lay", ncpu, evtlog);
 	if(evtlog) fclose(evtlog);
 	free_cplist(pbs);
 	free_cplist(ngs);
