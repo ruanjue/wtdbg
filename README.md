@@ -3,7 +3,7 @@
 A fuzzy Bruijn graph (FBG) approach to long noisy reads assembly
 
 **wtdbg** is desiged to assemble huge genomes in very limited time, it requires a PowerPC with multiple-cores and very big RAM (1Tb+).
-To assemble a 100 X human pacbio dataset, **wtdbg** will finish the assembly in about 100 CPU.Hours.
+To assemble a 100 X human pacbio dataset, **wtdbg** will finish the assembly within one day.
 
 # Assembly of big genomes using PacBio data
 
@@ -29,17 +29,6 @@ wtdbg-cns -t 96 -i dbg.map.lay -o dbg.map.lay.fa -k 13 2>&1 | tee log.cns.2
 # you need to concat all reads into one file for minimap and map2dbgcns
 # dbg.map.lay.fa is the final contigs
 
-```
-For example, I downloaded the haploid human genome (CHM1HTERT) PacBio dataset from http://www.ebi.ac.uk/ena/data/view/PRJNA246220.
-**wtdbg** took only 50 CPU.Hours on a PowerPC with 96-cores and 2TB RAM:
-````sh
---
--- real                31840.668 sec
--- user               173685.027 sec
--- sys                  7510.670 sec
--- maxrss          763779532.000 kB
--- maxvsize        940066104.000 kB
---
 ```
 
 # Assembly of huge genomes
