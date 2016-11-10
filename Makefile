@@ -17,7 +17,7 @@ INSTALLDIR=/usr/local/bin
 GLIBS=-lm -lpthread
 GENERIC_SRC=mem_share.h string.h file_reader.h file_reader.c bitvec.h hashset.h sort.h list.h dna.h thread.h
 
-PROGS=wtdbg wtdbg-cns
+PROGS=wtdbg wtdbg-cns map2dbgcns
 
 all: $(PROGS)
 
@@ -26,6 +26,9 @@ wtdbg: $(GENERIC_SRC) wtdbg.c dmo.h
 
 wtdbg-cns: $(GENERIC_SRC) wtdbg-cns.c kswx.h ksw.h ksw.c dbgcns.h dagcns.h queue.h general_graph.h
 	$(CC) $(CFLAGS) -o wtdbg-cns file_reader.c wtdbg-cns.c ksw.c $(GLIBS)
+
+map2dbgcns: $(GENERIC_SRC) map2dbgcns.c
+	$(CC) $(CFLAGS) -o map2dbgcns file_reader.c map2dbgcns.c $(GLIBS)
 
 clean:
 	rm -f *.o *.gcda *.gcno *.gcov gmon.out $(PROGS)
