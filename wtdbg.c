@@ -4047,6 +4047,8 @@ u4i cut_loopback_edges_subgraph(tracev *traces, u4i tb, subnodehash *nodes, sube
 							fprintf(stderr, " -- too many warnings in %s -- %s:%d --\n", __FUNCTION__, __FILE__, __LINE__); fflush(stderr);
 						} else if(warn_cnt < 10){
 							fprintf(stderr, " -- something wrong in %s -- %s:%d --\n", __FUNCTION__, __FILE__, __LINE__); fflush(stderr);
+						} else {
+							warn_cnt = 11;
 						}
 					}
 					e->visit = 1; // will be visited
@@ -5061,10 +5063,12 @@ u8i print_ctgs_graph(Graph *g, u8i uid, u8i beg, u8i end, char *prefix, char *ut
 			seqs->size += reg->end - reg->beg;
 			seqs->string[seqs->size] = '\0';
 		}
-		fprintf(o_utg, ">ctg%llu len=%d nodes=%llu beg=N%llu end=N%llu\n", uid, seqs->size, (u8i)path->size,
-			path->buffer[0].node, path->buffer[path->size - 1].node);
-		print_pretty_seq(o_utg, seqs, 100);
-		push_u4v(lens, seqs->size);
+		if(seqs->size){
+			fprintf(o_utg, ">ctg%llu len=%d nodes=%llu beg=N%llu end=N%llu\n", uid, seqs->size, (u8i)path->size,
+				path->buffer[0].node, path->buffer[path->size - 1].node);
+			print_pretty_seq(o_utg, seqs, 100);
+			push_u4v(lens, seqs->size);
+		}
 	}
 	fclose(o_lay);
 	fclose(o_utg);
