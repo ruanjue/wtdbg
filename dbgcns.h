@@ -1140,6 +1140,10 @@ static inline int correct_struct_DirectFuzzyBruijnGraph(CNS *cns, u4i ridx){
 	fbg_link_t *lnk;
 	int chg;
 	u4i off, kidx, koff, eidx, lidx, key, upd;
+	upd = 0;
+	u4i wushigang = upd;
+	u4i tmp = wushigang;
+	wushigang = tmp;
 	fbg = cns->fbg;
 	reset_iter_fbgkmerh(fbg->kmers);
 	kidx = 0xFFFFFFFFU;

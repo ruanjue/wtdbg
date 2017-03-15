@@ -534,6 +534,10 @@ void build_nodes_graph(Graph *g, int align_mode, u8i maxbp, int ncpu, FILE *alno
 	uint32_t nqry, rid, i, x, regoff, dep, beg, end, ib, ie, mi, max_node_cov, round;
 	pbread_t *pb;
 	read_t *rd;
+	rd = NULL;
+	read_t *wushigang = rd;
+	read_t *tmp = wushigang;
+	wushigang = tmp;
 	ptr_ref_t *rds;
 	rdrepv *reps;
 	rdregv *regs;
@@ -747,6 +751,10 @@ void fast_build_nodes_graph(Graph *g, int align_mode, int ncpu, FILE *alno){
 	wt_ovl_t *hit;
 	u8v *ins;
 	u8i rank, kcnts[256], nskip, maxbp, nbp, fix_node;
+	fix_node = 0;
+	u8i wushigang = fix_node;
+	u8i tmp = wushigang;
+	wushigang = tmp;
 	uint32_t nqry, rid, i, x, regoff, dep, beg, end, ib, ie, mi, round, pblen, rankinc;
 	rdregv *regs;
 	rnk_ref_t *nd, ND;
@@ -1145,7 +1153,7 @@ int estimate_edge_length(edge_off_t *ps, uint32_t size, uint32_t idxs[2]){
 	if(size == 0){ return 0; }
 	if(size <= 2){ return ps[size/2].off; }
 	b = 0; e = size;
-	for(i=b,tot=0;i<e;i++) tot += ps[i].off; len = tot / (e - b);
+	for(i=b,tot=0;i<e;i++) {tot += ps[i].off;} len = tot / (e - b);
 	//fprintf(stdout, "b=%d\te=%d\tlen=%d\n", b, e, len);
 	while(b + 2 < e){
 		max = 0; mi = 0;
@@ -1159,7 +1167,7 @@ int estimate_edge_length(edge_off_t *ps, uint32_t size, uint32_t idxs[2]){
 		else if(max < 100) break;
 		if(mi - b > e - mi) e = mi;
 		else b = mi;
-		for(i=b,tot=0;i<e;i++) tot += ps[i].off; avg = tot / (e - b);
+		for(i=b,tot=0;i<e;i++) {tot += ps[i].off;} avg = tot / (e - b);
 		if(num_diff(avg, len) < num_max(avg * 0.2, 50)) break;
 		len = avg;
 	}
@@ -1285,6 +1293,10 @@ void build_edges_graph(Graph *g, int ncpu){
 	edge_ref_t f1, f2;
 	edgeoffv *offs;
 	uint64_t idx, lst, cnt, x, *u;
+	cnt = 0;
+	uint64_t wushigang = cnt;
+	uint64_t tmp = wushigang;
+	wushigang = tmp;
 	uint32_t rid, i, idxs[2];
 	int exists;
 	clear_edgev(g->edges);
@@ -1797,7 +1809,7 @@ uint64_t mask_possible_tip_nodes_graph(Graph *g){
 	return ret;
 }
 
-inline void cut_edge_core_graph(Graph *g, edge_t *e, int closed_val){
+void cut_edge_core_graph(Graph *g, edge_t *e, int closed_val){
 	//if(e->closed == closed_val) return;
 	if(e->closed) return;
 	e->closed = closed_val;
@@ -1807,7 +1819,7 @@ inline void cut_edge_core_graph(Graph *g, edge_t *e, int closed_val){
 
 #define cut_edge_graph(g, e) cut_edge_core_graph(g, e, 1)
 
-inline void cut_lnk_core_graph(Graph *g, lnk_t *e, int closed_val){
+void cut_lnk_core_graph(Graph *g, lnk_t *e, int closed_val){
 	if(e->closed) return;
 	e->closed = closed_val;
 	ref_frgv(g->frgs, e->frg1)->lnks[e->dir1].cnt --;
@@ -1816,14 +1828,14 @@ inline void cut_lnk_core_graph(Graph *g, lnk_t *e, int closed_val){
 
 #define cut_lnk_graph(g, e) cut_lnk_core_graph(g, e, 1)
 
-inline void revive_edge_graph(Graph *g, edge_t *e){
+void revive_edge_graph(Graph *g, edge_t *e){
 	if(e->closed == WT_EDGE_CLOSED_NULL) return;
 	e->closed = WT_EDGE_CLOSED_NULL;
 	ref_nodev(g->nodes, e->node1)->edges[e->dir1].cnt ++;
 	ref_nodev(g->nodes, e->node2)->edges[!e->dir2].cnt ++;
 }
 
-inline void revive_lnk_graph(Graph *g, lnk_t *e){
+void revive_lnk_graph(Graph *g, lnk_t *e){
 	if(e->closed == WT_EDGE_CLOSED_NULL) return;
 	e->closed = WT_EDGE_CLOSED_NULL;
 	ref_frgv(g->frgs, e->frg1)->lnks[e->dir1].cnt ++;
@@ -2353,6 +2365,10 @@ uint32_t rescue_low_cov_transitive_edges_graph(Graph *g, uint64_t nid, u8v *edge
 	edge_ref_t *f, *f2, *f3;
 	edge_t *e, *e1, *e2;
 	reg_t *r;
+	r = NULL;
+	reg_t *wushigang = r;
+	reg_t *tmp = wushigang;
+	wushigang = tmp;
 	UUhash_t *u;
 	uint64_t idx, nid2, nid3;
 	uint32_t i, k, k2, k3, k4, ret;
@@ -2517,6 +2533,10 @@ uint64_t rescue_low_cov_tip_edges_graph(Graph *g){
 
 uint32_t rescue_weak_tip_lnks_core(Graph *g, uint64_t nid){
 	frg_t *n, *w, *ww;
+	ww = NULL;
+	frg_t *wushigang = ww;
+	frg_t *tmp = wushigang;
+	wushigang = tmp;
 	lnk_t *e, *ee;
 	edge_ref_t *f;
 	uint64_t idx, wid;
@@ -2606,7 +2626,7 @@ u8i rescue_weak_tip_lnks_graph(Graph *g){
 	return ret;
 }
 
-inline int _scoring_edge_orders(Graph *g, uint64_t fidx){
+int _scoring_edge_orders(Graph *g, uint64_t fidx){
 	edge_ref_t *f;
 	edge_t *e;
 	node_t *n;
@@ -3145,6 +3165,10 @@ uint32_t pop_bubble_core_graph(Graph *g, uint16_t max_step, btv *bts, u4v *heap,
 	edge_ref_t *f;
 	edge_t *e;
 	uint64_t ret, idx;
+	ret = 0;
+	uint64_t wushigang = ret;
+	uint64_t tmp = wushigang;
+	wushigang = tmp;
 	uint32_t bidx, i, lst, unclosed;
 	ret = 0;
 	n = ref_nodev(g->nodes, nid);
@@ -3269,6 +3293,10 @@ uint32_t pop_frg_bubble_core_graph(Graph *g, uint16_t max_step, frgbtv *bts, u4v
 	edge_ref_t *f;
 	lnk_t *e;
 	uint64_t ret, idx;
+	ret = 0;
+	uint64_t wushigang = ret;
+	uint64_t tmp = wushigang;
+	wushigang = tmp;
 	uint32_t bidx, i, lst, unclosed;
 	ret = 0;
 	n = ref_frgv(g->frgs, nid);
@@ -3390,6 +3418,10 @@ u4i resolve_yarn_core_graph(Graph *g, u4i max_step, btv *bts, u4v *heap, u8i nid
 	edge_ref_t *f;
 	edge_t *e;
 	uint64_t ret, idx, tip_idx;
+	ret = 0;
+	uint64_t wushigang = ret;
+	uint64_t tmp = wushigang;
+	wushigang = tmp;
 	uint32_t bidx, i, lst, tip;
 	ret = 0;
 	n = ref_nodev(g->nodes, nid);
@@ -4662,6 +4694,10 @@ u4i gen_lnks_graph(Graph *g, int ncpu){
 	edge_ref_t F1, F2;
 	u8i lst, idx;
 	u4i i, cnt, fdir;
+	cnt = 0;
+	u4i wushigang = cnt;
+	u4i tmp = wushigang;
+	wushigang = tmp;
 	int exists, j, x, y, inc;
 	clear_lnkv(g->lnks);
 	memset(next_ref_lnkv(g->lnks), 0, sizeof(lnk_t));
@@ -5089,6 +5125,10 @@ uint32_t print_traces_graph(Graph *g, tracev *path, FILE *out){
 	reg_t *r1, *r2;
 	edge_ref_t *f;
 	edge_t *e;
+	e = NULL;
+	edge_t *wushigang = e;
+	edge_t *tmp = wushigang;
+	wushigang = tmp;
 	int offset, fst;
 	uint64_t j, beg, end;
 	uint32_t i, rid;
@@ -5649,6 +5689,44 @@ int usage(){
 }
 
 int main(int argc, char **argv){
+	rnk_ref_t wushigang1 = RNK_REF_NULL;
+	rnk_ref_t tmp1 = wushigang1;
+	wushigang1 = tmp1;
+	vec_ref_t wushigang2 = VEC_REF_NULL;
+	vec_ref_t tmp2 = wushigang2;
+	wushigang2 = tmp2;
+	obj_desc_t wushigang = rdregv_obj_desc;
+	obj_desc_t tmp = wushigang;
+	wushigang = tmp;
+	wushigang = rdrepv_obj_desc;
+	wushigang = regv_obj_desc;
+	wushigang = xyv_obj_desc;
+	wushigang = vecrefv_obj_desc;
+	wushigang = ptrrefv_obj_desc;
+	wushigang = rnkrefv_obj_desc;
+	wushigang = ptrrefhash_obj_desc;
+	wushigang = edgev_obj_desc;
+	wushigang = edgehash_obj_desc;
+	wushigang = edgerefv_obj_desc;
+	wushigang = nodev_obj_desc;
+	wushigang = readv_obj_desc;
+	wushigang = tracev_obj_desc;
+	wushigang = lnkv_obj_desc;
+	wushigang = lnkhash_obj_desc;
+	wushigang = frgv_obj_desc;
+	wushigang = pathv_obj_desc;
+	wushigang = edgeoffv_obj_desc;
+	wushigang = subnodehash_obj_desc;
+	wushigang = subedgev_obj_desc;
+	wushigang = btv_obj_desc;
+	wushigang = frgbtv_obj_desc;
+	wushigang = sgheapv_obj_desc;
+	wushigang = sgtipv_obj_desc;
+	wushigang = subrdv_obj_desc;
+	wushigang = subrdhash_obj_desc;
+	wushigang = weakfnhash_obj_desc;
+	wushigang = layregv_obj_desc;
+	wushigang = layv_obj_desc;
 	Graph *g;
 	DMOPar pars[2];
 	DMO *dmo;
@@ -5984,7 +6062,7 @@ int main(int argc, char **argv){
 				if(cnt) c = 1;
 			} while(cnt);
 		} while(c);
-		if(bub + tip) fprintf(hzm_debug_out, "[%s] %llu bubbles; %llu tips; %llu yarns;\n", date(), bub, tip, yarn); fflush(hzm_debug_out);
+		if(bub + tip) {fprintf(hzm_debug_out, "[%s] %llu bubbles; %llu tips; %llu yarns;\n", date(), bub, tip, yarn);} fflush(hzm_debug_out);
 	}
 	{
 		cnt = del_isolated_nodes_graph(g);

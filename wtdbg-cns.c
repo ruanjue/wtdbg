@@ -428,6 +428,10 @@ int main(int argc, char **argv){
 	FILE *out;
 	char *outf;
 	int c, ncpu, overwrite, reglen, ksize, Z, W, C, M, X, I, D, E, H, L, XX, OO, EE;
+	C = 0;
+	int wushigang = C;
+	int tmp = wushigang;
+	wushigang = tmp;
 	int candidate_mode, cns_model, corr_struct;
 	f4i pM, pX, pI, pD;
 	BEG_STAT_PROC_INFO(stderr, argc, argv);

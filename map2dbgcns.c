@@ -216,6 +216,10 @@ int usage(){
 }
 
 int main(int argc, char **argv){
+	obj_desc_t wushigang = hrefv_obj_desc;
+	wushigang = hitv_obj_desc;
+	obj_desc_t tmp = wushigang;
+	wushigang = tmp;
 	LAY *lay;
 	FileReader *ctgf, *rdsf, *mapf;
 	int c, win, step, ext, ncpu;

@@ -394,7 +394,7 @@ if(midx->task == 1){
 			clear_kminv(kmins);
 		}
 	}
-	if(hzm_debug == 0 && tidx == 0) fprintf(hzm_debug_out, "\r%u reads\n", pbid - beg); fflush(hzm_debug_out);
+	if(hzm_debug == 0 && tidx == 0) {fprintf(hzm_debug_out, "\r%u reads\n", pbid - beg);} fflush(hzm_debug_out);
 } else if(midx->task == 3){
 	for(pbid=beg;pbid<end;pbid++){
 		rd = ref_pbreadv(wt->reads, pbid);
@@ -563,6 +563,10 @@ thread_end_func(msrt);
 static inline void index_dmo(DMO *wt, uint32_t beg, uint32_t end, uint32_t ncpu){
 	hzmh_t  *u;
 	unsigned long long ktyp, nflt, nrem, Nrem, none, ktot, off, cnt, totlen, *kcnts, MAX;
+	totlen = 0;
+	unsigned long long wushigang = totlen;
+	unsigned long long tmp = wushigang;
+	wushigang = tmp;
 	uint32_t kavg, i, b, e, batch_size;
 	thread_preprocess(midx);
 	thread_preprocess(msrt);
@@ -600,7 +604,7 @@ static inline void index_dmo(DMO *wt, uint32_t beg, uint32_t end, uint32_t ncpu)
 		thread_end_iter(midx);
 		if(hzm_debug == 0){ fprintf(hzm_debug_out, "\r%u", e - beg); fflush(hzm_debug_out); }
 	}
-	if(hzm_debug == 0) fprintf(hzm_debug_out, "\r%u reads\n", end - beg); fflush(hzm_debug_out);
+	if(hzm_debug == 0) {fprintf(hzm_debug_out, "\r%u reads\n", end - beg);} fflush(hzm_debug_out);
 	// estimate kmer_freq_cutoff
 	if(wt->par->kmax < 2){
 		MAX = 10000;
@@ -670,7 +674,7 @@ static inline void index_dmo(DMO *wt, uint32_t beg, uint32_t end, uint32_t ncpu)
 		thread_end_iter(midx);
 		if(hzm_debug == 0){ fprintf(hzm_debug_out, "\r%u", e - beg); fflush(hzm_debug_out); }
 	}
-	if(hzm_debug == 0) fprintf(hzm_debug_out, "\r%u reads\n", end - beg); fflush(hzm_debug_out);
+	if(hzm_debug == 0) {fprintf(hzm_debug_out, "\r%u reads\n", end - beg);} fflush(hzm_debug_out);
 	thread_beg_close(midx);
 	free_midxv(midx->mcache);
 	free_hzmmv(midx->hcache);
@@ -1485,6 +1489,10 @@ static inline void query_dmo(DMO *wt, uint32_t pbid, BaseBank *rdseqs, uint64_t 
 	hzm_t *p1, P1;
 	hzm_t *p2, P2;
 	uint32_t i, n, id1, id2, cnt, dir;
+	dir = 0;
+	uint32_t wushigang = dir;
+	uint32_t tmp = wushigang;
+	wushigang = tmp;
 	int mat, aln, lst;
 	uint8_t has_next;
 	if(rdseqs) query_index_dmo(wt, pbid, rdseqs, pboff, pblen, aux);
